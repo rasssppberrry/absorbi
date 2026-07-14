@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { Card } from "@/components/ui/card";
 import { Container } from "@/components/ui/container";
+import { NewCaseForm } from "@/components/app/new-case-form";
 
 export default function NewCasePage() {
   return (
@@ -14,12 +14,14 @@ export default function NewCasePage() {
           <ArrowLeft className="h-4 w-4" />
           Back to cases
         </Link>
-        <Card className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-semibold tracking-tight">New case</h1>
           <p className="text-sm text-muted">
-            The clinical form and MRI upload are built in the next step.
+            Enter the clinical findings from the lumbar MRI. The analysis is
+            added in a later step.
           </p>
-        </Card>
+        </div>
+        <NewCaseForm />
       </Container>
     </main>
   );
