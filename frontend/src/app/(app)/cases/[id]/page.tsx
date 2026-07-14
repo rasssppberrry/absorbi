@@ -2,11 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Container } from "@/components/ui/container";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { MriViewer } from "@/components/app/mri-viewer";
+import { AnalysisResult } from "@/components/app/analysis-result";
 import { RED_FLAG_ITEMS, type ClinicalForm } from "@/lib/cases/types";
+import { runAnalysis } from "@/lib/cases/actions";
 
 const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "webp", "gif", "bmp"];
 
@@ -43,6 +46,16 @@ export default async function CaseDetailPage({
     .single();
 
   if (!study) notFound();
+
+  const { data: prediction } = await supabase
+    .from("predictions")
+    .select(
+      "model_version, red_flag_band, red_flag_factors, resorption_prob, resorption_band, trajectory"
+    )
+    .eq("study_id", id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   const form = (study.clinical_form ?? {}) as Partial<ClinicalForm>;
   const activeFlags = RED_FLAG_ITEMS.filter(
@@ -129,13 +142,26 @@ export default async function CaseDetailPage({
           )}
         </Card>
 
-        <Card className="flex flex-col gap-2">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-muted">
-            Analysis
-          </h2>
-          <p className="text-sm text-muted">
-            The triage analysis is added in the next step.
-          </p>
+        <Card className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-semibold uppercase tracking-widest text-muted">
+              Triage analysis
+            </h2>
+            <form action={runAnalysis}>
+              <input type="hidden" name="studyId" value={study.id} />
+              <Button type="submit" variant={prediction ? "secondary" : "primary"} size="sm">
+                {prediction ? "Re-run analysis" : "Run analysis"}
+              </Button>
+            </form>
+          </div>
+          {prediction ? (
+            <AnalysisResult prediction={prediction} />
+          ) : (
+            <p className="text-sm text-muted">
+              No analysis yet. Run the analysis to see the triage light and the
+              resorption estimate.
+            </p>
+          )}
         </Card>
       </Container>
     </main>
