@@ -5,11 +5,14 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Container } from "@/components/ui/container";
+import { Field } from "@/components/ui/field";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { MriViewer } from "@/components/app/mri-viewer";
 import { AnalysisResult } from "@/components/app/analysis-result";
 import { RED_FLAG_ITEMS, type ClinicalForm } from "@/lib/cases/types";
-import { runAnalysis } from "@/lib/cases/actions";
+import { runAnalysis, signOff } from "@/lib/cases/actions";
 
 const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "webp", "gif", "bmp"];
 
@@ -31,6 +34,29 @@ function show(value: string | number | null | undefined) {
   if (value === null || value === undefined || value === "") return "Not recorded";
   return String(value);
 }
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function clinicianName(signoff: { profiles?: unknown }) {
+  const p = signoff.profiles as { full_name?: string } | { full_name?: string }[] | null;
+  if (!p) return "Clinician";
+  if (Array.isArray(p)) return p[0]?.full_name ?? "Clinician";
+  return p.full_name ?? "Clinician";
+}
+
+const ACTIVITY_LABELS: Record<string, string> = {
+  "case.created": "Case created",
+  "case.analyzed": "Analysis run",
+  "case.signoff": "Signed off",
+};
 
 export default async function CaseDetailPage({
   params,
@@ -56,6 +82,19 @@ export default async function CaseDetailPage({
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  const { data: signoffs } = await supabase
+    .from("signoffs")
+    .select("id, decision, note, signed_at, profiles(full_name), predictions!inner(study_id)")
+    .eq("predictions.study_id", id)
+    .order("signed_at", { ascending: false });
+
+  const { data: activity } = await supabase
+    .from("audit_log")
+    .select("id, action, created_at")
+    .eq("entity", "study")
+    .eq("entity_id", id)
+    .order("created_at", { ascending: false });
 
   const form = (study.clinical_form ?? {}) as Partial<ClinicalForm>;
   const activeFlags = RED_FLAG_ITEMS.filter(
@@ -161,6 +200,87 @@ export default async function CaseDetailPage({
               No analysis yet. Run the analysis to see the triage light and the
               resorption estimate.
             </p>
+          )}
+        </Card>
+
+        <Card className="flex flex-col gap-4">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-muted">
+            Clinical sign off
+          </h2>
+
+          {signoffs && signoffs.length > 0 ? (
+            <div className="flex flex-col gap-3">
+              {signoffs.map((s) => (
+                <div key={s.id} className="border-b border-border pb-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{s.decision}</span>
+                    <span className="text-xs text-muted">
+                      {formatDateTime(s.signed_at)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted">{clinicianName(s)}</p>
+                  {s.note ? (
+                    <p className="mt-1 text-sm text-foreground">{s.note}</p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted">No sign off recorded yet.</p>
+          )}
+
+          {prediction ? (
+            <form action={signOff} className="flex flex-col gap-4 border-t border-border pt-4">
+              <input type="hidden" name="studyId" value={study.id} />
+              <Field label="Decision" htmlFor="decision">
+                <Select id="decision" name="decision" defaultValue="" required>
+                  <option value="" disabled>
+                    Select a decision
+                  </option>
+                  <option value="Conservative management">Conservative management</option>
+                  <option value="Refer for surgical opinion">Refer for surgical opinion</option>
+                  <option value="Urgent referral">Urgent referral</option>
+                  <option value="Further investigation">Further investigation</option>
+                </Select>
+              </Field>
+              <Field label="Note" htmlFor="note" hint="Optional">
+                <Textarea id="note" name="note" />
+              </Field>
+              <div>
+                <Button type="submit" size="sm">
+                  Record sign off
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <p className="text-sm text-muted">
+              Run the analysis before recording a sign off.
+            </p>
+          )}
+        </Card>
+
+        <Card className="flex flex-col gap-3">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-muted">
+            Activity log
+          </h2>
+          {activity && activity.length > 0 ? (
+            <div className="flex flex-col">
+              {activity.map((a) => (
+                <div
+                  key={a.id}
+                  className="flex items-center justify-between border-b border-border py-2 text-sm"
+                >
+                  <span className="text-foreground">
+                    {ACTIVITY_LABELS[a.action] ?? a.action}
+                  </span>
+                  <span className="text-xs text-muted">
+                    {formatDateTime(a.created_at)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted">No activity yet.</p>
           )}
         </Card>
       </Container>

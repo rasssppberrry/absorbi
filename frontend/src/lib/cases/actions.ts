@@ -3,8 +3,29 @@
 import { randomUUID, createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { analyze } from "@/lib/engine/rules";
 import type { ClinicalForm } from "./types";
+
+async function logActivity(entry: {
+  actorId: string;
+  hospitalId: string;
+  action: string;
+  studyId: string;
+  metadata?: Record<string, unknown>;
+}) {
+  // Written with the trusted server key so the log cannot be forged or edited
+  // by ordinary users. The database also blocks updates and deletes.
+  const admin = createAdminClient();
+  await admin.from("audit_log").insert({
+    actor_id: entry.actorId,
+    hospital_id: entry.hospitalId,
+    action: entry.action,
+    entity: "study",
+    entity_id: entry.studyId,
+    metadata: entry.metadata ?? {},
+  });
+}
 
 type CreateCaseInput = {
   patientReference: string;
@@ -61,6 +82,13 @@ export async function createCase(
     return { error: "Could not save the case. " + studyError.message };
   }
 
+  await logActivity({
+    actorId: user.id,
+    hospitalId,
+    action: "case.created",
+    studyId,
+  });
+
   return { studyId, storagePrefix };
 }
 
@@ -76,7 +104,7 @@ export async function runAnalysis(formData: FormData) {
 
   const { data: study } = await supabase
     .from("studies")
-    .select("id, clinical_form")
+    .select("id, hospital_id, clinical_form")
     .eq("id", studyId)
     .single();
   if (!study) return;
@@ -106,6 +134,62 @@ export async function runAnalysis(formData: FormData) {
   });
 
   await supabase.from("studies").update({ status: "ready" }).eq("id", studyId);
+
+  await logActivity({
+    actorId: user.id,
+    hospitalId: study.hospital_id as string,
+    action: "case.analyzed",
+    studyId,
+  });
+
+  revalidatePath(`/cases/${studyId}`);
+}
+
+export async function signOff(formData: FormData) {
+  const studyId = String(formData.get("studyId") ?? "");
+  const decision = String(formData.get("decision") ?? "");
+  const note = String(formData.get("note") ?? "");
+  if (!studyId || !decision) return;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { data: study } = await supabase
+    .from("studies")
+    .select("id, hospital_id")
+    .eq("id", studyId)
+    .single();
+  if (!study) return;
+
+  const { data: prediction } = await supabase
+    .from("predictions")
+    .select("id")
+    .eq("study_id", studyId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!prediction) return; // an analysis must exist before signing off
+
+  const { error: signError } = await supabase.from("signoffs").insert({
+    prediction_id: prediction.id,
+    clinician_id: user.id,
+    decision,
+    note: note || null,
+  });
+  if (signError) return;
+
+  await supabase.from("studies").update({ status: "signed" }).eq("id", studyId);
+
+  await logActivity({
+    actorId: user.id,
+    hospitalId: study.hospital_id as string,
+    action: "case.signoff",
+    studyId,
+    metadata: { decision },
+  });
 
   revalidatePath(`/cases/${studyId}`);
 }
