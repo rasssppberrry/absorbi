@@ -5,7 +5,15 @@ import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
 import { Container } from "@/components/ui/container";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { MriViewer } from "@/components/app/mri-viewer";
 import { RED_FLAG_ITEMS, type ClinicalForm } from "@/lib/cases/types";
+
+const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "webp", "gif", "bmp"];
+
+function isImageName(name: string) {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  return IMAGE_EXTENSIONS.includes(ext);
+}
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -30,7 +38,7 @@ export default async function CaseDetailPage({
   const supabase = await createClient();
   const { data: study } = await supabase
     .from("studies")
-    .select("id, status, created_at, clinical_form")
+    .select("id, status, created_at, clinical_form, storage_prefix")
     .eq("id", id)
     .single();
 
@@ -40,6 +48,29 @@ export default async function CaseDetailPage({
   const activeFlags = RED_FLAG_ITEMS.filter(
     (item) => form.redFlags?.[item.key]
   ).map((item) => item.label);
+
+  let viewerFiles: { name: string; url: string; isImage: boolean }[] = [];
+  if (study.storage_prefix) {
+    const { data: list } = await supabase.storage
+      .from("mri")
+      .list(study.storage_prefix, { limit: 100 });
+    const names = (list ?? [])
+      .map((o) => o.name)
+      .filter((n) => n && !n.startsWith("."));
+    if (names.length > 0) {
+      const paths = names.map((n) => `${study.storage_prefix}/${n}`);
+      const { data: signed } = await supabase.storage
+        .from("mri")
+        .createSignedUrls(paths, 3600);
+      viewerFiles = (signed ?? [])
+        .map((s, i) => ({
+          name: names[i],
+          url: s.signedUrl ?? "",
+          isImage: isImageName(names[i]),
+        }))
+        .filter((f) => f.url);
+    }
+  }
 
   return (
     <main className="py-10">
@@ -58,6 +89,13 @@ export default async function CaseDetailPage({
           </h1>
           <StatusBadge status={study.status} />
         </div>
+
+        <Card className="flex flex-col gap-3">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-muted">
+            MRI images
+          </h2>
+          <MriViewer files={viewerFiles} />
+        </Card>
 
         <Card className="flex flex-col gap-2">
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted">
@@ -93,10 +131,10 @@ export default async function CaseDetailPage({
 
         <Card className="flex flex-col gap-2">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-muted">
-            Imaging and analysis
+            Analysis
           </h2>
           <p className="text-sm text-muted">
-            The MRI viewer and the triage analysis are added in the next steps.
+            The triage analysis is added in the next step.
           </p>
         </Card>
       </Container>
