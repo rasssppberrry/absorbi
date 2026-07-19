@@ -134,7 +134,7 @@ export default async function CaseDetailPage({
 
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold tracking-tight">
-            {t.caseLabel} {study.id.slice(0, 8)}
+            {form.patientName || `${t.caseLabel} ${study.id.slice(0, 8)}`}
           </h1>
           <StatusBadge status={study.status} />
         </div>

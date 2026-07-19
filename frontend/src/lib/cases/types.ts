@@ -11,6 +11,7 @@ export type RedFlags = {
 };
 
 export type ClinicalForm = {
+  patientName: string;
   age: number | null;
   bmi: number | null;
   symptomDurationWeeks: number | null;

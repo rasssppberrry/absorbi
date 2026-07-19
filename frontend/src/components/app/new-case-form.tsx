@@ -37,6 +37,7 @@ export function NewCaseForm() {
     recentTrauma: t.rfTrauma,
   };
 
+  const [patientName, setPatientName] = useState("");
   const [patientReference, setPatientReference] = useState("");
   const [sex, setSex] = useState("");
   const [age, setAge] = useState("");
@@ -67,6 +68,7 @@ export function NewCaseForm() {
       patientReference,
       sex,
       form: {
+        patientName,
         age: age === "" ? null : Number(age),
         bmi: bmi === "" ? null : Number(bmi),
         symptomDurationWeeks: symptom === "" ? null : Number(symptom),
@@ -109,6 +111,9 @@ export function NewCaseForm() {
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
       <Card className="flex flex-col gap-4">
         <SectionTitle>{t.secPatient}</SectionTitle>
+        <Field label={t.patientName} htmlFor="patientName">
+          <Input id="patientName" value={patientName} onChange={(e) => setPatientName(e.target.value)} required />
+        </Field>
         <Field label={t.patientReference} htmlFor="ref" hint={t.patientRefHint}>
           <Input id="ref" value={patientReference} onChange={(e) => setPatientReference(e.target.value)} />
         </Field>

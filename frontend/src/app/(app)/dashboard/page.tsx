@@ -22,7 +22,7 @@ export default async function DashboardPage() {
   const supabase = await createClient();
   const { data: studies } = await supabase
     .from("studies")
-    .select("id, status, created_at")
+    .select("id, status, created_at, clinical_form")
     .order("created_at", { ascending: false });
 
   const cases = studies ?? [];
@@ -67,7 +67,10 @@ export default async function DashboardPage() {
                 href={`/cases/${c.id}`}
                 className="grid grid-cols-[1fr_auto_auto] items-center gap-4 border-b border-border py-4 text-sm transition-colors hover:bg-neutral-50"
               >
-                <span className="font-medium">{t.caseLabel} {c.id.slice(0, 8)}</span>
+                <span className="font-medium">
+                  {(c.clinical_form as { patientName?: string } | null)?.patientName ||
+                    `${t.caseLabel} ${c.id.slice(0, 8)}`}
+                </span>
                 <StatusBadge status={c.status} />
                 <span className="text-muted">{formatDate(c.created_at)}</span>
               </Link>
