@@ -11,8 +11,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { MriViewer } from "@/components/app/mri-viewer";
 import { AnalysisResult } from "@/components/app/analysis-result";
-import { RED_FLAG_ITEMS, type ClinicalForm } from "@/lib/cases/types";
 import { runAnalysis, signOff } from "@/lib/cases/actions";
+import { RED_FLAG_ITEMS, type ClinicalForm } from "@/lib/cases/types";
+import { getDict, getLang } from "@/lib/i18n/server";
+import { tr } from "@/lib/i18n/dictionaries";
 
 const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "webp", "gif", "bmp"];
 
@@ -28,11 +30,6 @@ function Row({ label, value }: { label: string; value: string }) {
       <span className="text-foreground">{value}</span>
     </div>
   );
-}
-
-function show(value: string | number | null | undefined) {
-  if (value === null || value === undefined || value === "") return "Not recorded";
-  return String(value);
 }
 
 function formatDateTime(value: string) {
@@ -52,19 +49,16 @@ function clinicianName(signoff: { profiles?: unknown }) {
   return p.full_name ?? "Clinician";
 }
 
-const ACTIVITY_LABELS: Record<string, string> = {
-  "case.created": "Case created",
-  "case.analyzed": "Analysis run",
-  "case.signoff": "Signed off",
-};
-
 export default async function CaseDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const t = await getDict();
+  const lang = await getLang();
   const supabase = await createClient();
+
   const { data: study } = await supabase
     .from("studies")
     .select("id, status, created_at, clinical_form, storage_prefix")
@@ -72,6 +66,11 @@ export default async function CaseDetailPage({
     .single();
 
   if (!study) notFound();
+
+  const form = (study.clinical_form ?? {}) as Partial<ClinicalForm>;
+  const activeFlags = RED_FLAG_ITEMS.filter((item) => form.redFlags?.[item.key]).map(
+    (item) => tr(lang, item.label)
+  );
 
   const { data: prediction } = await supabase
     .from("predictions")
@@ -96,30 +95,28 @@ export default async function CaseDetailPage({
     .eq("entity_id", id)
     .order("created_at", { ascending: false });
 
-  const form = (study.clinical_form ?? {}) as Partial<ClinicalForm>;
-  const activeFlags = RED_FLAG_ITEMS.filter(
-    (item) => form.redFlags?.[item.key]
-  ).map((item) => item.label);
+  const activityLabels: Record<string, string> = {
+    "case.created": t.actCreated,
+    "case.analyzed": t.actAnalyzed,
+    "case.signoff": t.actSignoff,
+  };
+
+  function showValue(value: string | number | null | undefined) {
+    if (value === null || value === undefined || value === "") return t.notRecorded;
+    return tr(lang, String(value));
+  }
 
   let viewerFiles: { name: string; url: string; isImage: boolean }[] = [];
   if (study.storage_prefix) {
     const { data: list } = await supabase.storage
       .from("mri")
       .list(study.storage_prefix, { limit: 100 });
-    const names = (list ?? [])
-      .map((o) => o.name)
-      .filter((n) => n && !n.startsWith("."));
+    const names = (list ?? []).map((o) => o.name).filter((n) => n && !n.startsWith("."));
     if (names.length > 0) {
       const paths = names.map((n) => `${study.storage_prefix}/${n}`);
-      const { data: signed } = await supabase.storage
-        .from("mri")
-        .createSignedUrls(paths, 3600);
+      const { data: signed } = await supabase.storage.from("mri").createSignedUrls(paths, 3600);
       viewerFiles = (signed ?? [])
-        .map((s, i) => ({
-          name: names[i],
-          url: s.signedUrl ?? "",
-          isImage: isImageName(names[i]),
-        }))
+        .map((s, i) => ({ name: names[i], url: s.signedUrl ?? "", isImage: isImageName(names[i]) }))
         .filter((f) => f.url);
     }
   }
@@ -132,44 +129,42 @@ export default async function CaseDetailPage({
           className="inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to cases
+          {t.backToCases}
         </Link>
 
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold tracking-tight">
-            Case {study.id.slice(0, 8)}
+            {t.caseLabel} {study.id.slice(0, 8)}
           </h1>
           <StatusBadge status={study.status} />
         </div>
 
         <Card className="flex flex-col gap-3">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-muted">
-            MRI images
-          </h2>
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-muted">{t.mriImages}</h2>
           <MriViewer files={viewerFiles} />
         </Card>
 
         <Card className="flex flex-col gap-2">
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted">
-            Clinical summary
+            {t.clinicalSummary}
           </h2>
-          <Row label="Age in years" value={show(form.age)} />
-          <Row label="Symptom duration in weeks" value={show(form.symptomDurationWeeks)} />
-          <Row label="Body mass index" value={show(form.bmi)} />
-          <Row label="Disc level" value={show(form.level)} />
-          <Row label="Herniation type" value={show(form.herniationType)} />
-          <Row label="Herniation size" value={show(form.herniationSize)} />
-          <Row label="Rim enhancement" value={show(form.rimEnhancement)} />
-          <Row label="Posterior longitudinal ligament" value={show(form.pllStatus)} />
-          <Row label="Modic changes" value={show(form.modicChanges)} />
+          <Row label={t.ageYears} value={showValue(form.age)} />
+          <Row label={t.symptomDuration} value={showValue(form.symptomDurationWeeks)} />
+          <Row label={t.bmi} value={showValue(form.bmi)} />
+          <Row label={t.discLevel} value={showValue(form.level)} />
+          <Row label={t.herniationType} value={showValue(form.herniationType)} />
+          <Row label={t.herniationSize} value={showValue(form.herniationSize)} />
+          <Row label={t.rimEnhancement} value={showValue(form.rimEnhancement)} />
+          <Row label={t.pll} value={showValue(form.pllStatus)} />
+          <Row label={t.modic} value={showValue(form.modicChanges)} />
         </Card>
 
         <Card className="flex flex-col gap-2">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-muted">
-            Red flags present
+            {t.redFlagsPresent}
           </h2>
           {activeFlags.length === 0 ? (
-            <p className="text-sm text-muted">None recorded.</p>
+            <p className="text-sm text-muted">{t.noneRecorded}</p>
           ) : (
             <ul className="flex flex-col gap-1">
               {activeFlags.map((flag) => (
@@ -184,84 +179,74 @@ export default async function CaseDetailPage({
         <Card className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-semibold uppercase tracking-widest text-muted">
-              Triage analysis
+              {t.triageAnalysis}
             </h2>
             <form action={runAnalysis}>
               <input type="hidden" name="studyId" value={study.id} />
               <Button type="submit" variant={prediction ? "secondary" : "primary"} size="sm">
-                {prediction ? "Re-run analysis" : "Run analysis"}
+                {prediction ? t.rerunAnalysis : t.runAnalysis}
               </Button>
             </form>
           </div>
           {prediction ? (
             <AnalysisResult prediction={prediction} />
           ) : (
-            <p className="text-sm text-muted">
-              No analysis yet. Run the analysis to see the triage light and the
-              resorption estimate.
-            </p>
+            <p className="text-sm text-muted">{t.noAnalysisYet}</p>
           )}
         </Card>
 
         <Card className="flex flex-col gap-4">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-muted">
-            Clinical sign off
+            {t.clinicalSignOff}
           </h2>
-
           {signoffs && signoffs.length > 0 ? (
             <div className="flex flex-col gap-3">
               {signoffs.map((s) => (
                 <div key={s.id} className="border-b border-border pb-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">{s.decision}</span>
-                    <span className="text-xs text-muted">
-                      {formatDateTime(s.signed_at)}
-                    </span>
+                    <span className="text-sm font-medium">{tr(lang, s.decision)}</span>
+                    <span className="text-xs text-muted">{formatDateTime(s.signed_at)}</span>
                   </div>
                   <p className="text-xs text-muted">{clinicianName(s)}</p>
-                  {s.note ? (
-                    <p className="mt-1 text-sm text-foreground">{s.note}</p>
-                  ) : null}
+                  {s.note ? <p className="mt-1 text-sm text-foreground">{s.note}</p> : null}
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted">No sign off recorded yet.</p>
+            <p className="text-sm text-muted">{t.noSignOff}</p>
           )}
 
           {prediction ? (
             <form action={signOff} className="flex flex-col gap-4 border-t border-border pt-4">
               <input type="hidden" name="studyId" value={study.id} />
-              <Field label="Decision" htmlFor="decision">
+              <Field label={t.decision} htmlFor="decision">
                 <Select id="decision" name="decision" defaultValue="" required>
                   <option value="" disabled>
-                    Select a decision
+                    {t.selectDecision}
                   </option>
-                  <option value="Conservative management">Conservative management</option>
-                  <option value="Refer for surgical opinion">Refer for surgical opinion</option>
-                  <option value="Urgent referral">Urgent referral</option>
-                  <option value="Further investigation">Further investigation</option>
+                  <option value="Conservative management">{t.decConservative}</option>
+                  <option value="Refer for surgical opinion">{t.decRefer}</option>
+                  <option value="Urgent referral">{t.decUrgent}</option>
+                  <option value="Further investigation">{t.decInvestigation}</option>
                 </Select>
               </Field>
-              <Field label="Note" htmlFor="note" hint="Optional">
+              <Field label={t.note} htmlFor="note" hint={t.optional}>
                 <Textarea id="note" name="note" />
               </Field>
               <div>
                 <Button type="submit" size="sm">
-                  Record sign off
+                  {t.recordSignOff}
                 </Button>
               </div>
             </form>
           ) : (
-            <p className="text-sm text-muted">
-              Run the analysis before recording a sign off.
-            </p>
+            <p className="text-sm text-muted">{t.signOffBeforeAnalysis}</p>
           )}
         </Card>
 
         <Card className="flex flex-col gap-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-muted">
-            Activity log
+            {t.activityLog}
           </h2>
           {activity && activity.length > 0 ? (
             <div className="flex flex-col">
@@ -270,17 +255,13 @@ export default async function CaseDetailPage({
                   key={a.id}
                   className="flex items-center justify-between border-b border-border py-2 text-sm"
                 >
-                  <span className="text-foreground">
-                    {ACTIVITY_LABELS[a.action] ?? a.action}
-                  </span>
-                  <span className="text-xs text-muted">
-                    {formatDateTime(a.created_at)}
-                  </span>
+                  <span className="text-foreground">{activityLabels[a.action] ?? a.action}</span>
+                  <span className="text-xs text-muted">{formatDateTime(a.created_at)}</span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted">No activity yet.</p>
+            <p className="text-sm text-muted">{t.noActivity}</p>
           )}
         </Card>
       </Container>
