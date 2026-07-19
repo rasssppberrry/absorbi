@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { createCase } from "@/lib/cases/actions";
 import { emptyRedFlags, RED_FLAG_ITEMS, type RedFlags } from "@/lib/cases/types";
+import { useLanguage } from "@/lib/i18n/provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -22,6 +23,19 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 export function NewCaseForm() {
   const router = useRouter();
+  const { t } = useLanguage();
+
+  const rfLabel: Record<string, string> = {
+    saddleAnesthesia: t.rfSaddle,
+    bladderBowelDysfunction: t.rfBladder,
+    bilateralLegSymptoms: t.rfBilateral,
+    progressiveMotorWeakness: t.rfProgressive,
+    severeMotorDeficit: t.rfSevere,
+    historyCancer: t.rfCancer,
+    unexplainedWeightLoss: t.rfWeight,
+    feverOrInfection: t.rfFever,
+    recentTrauma: t.rfTrauma,
+  };
 
   const [patientReference, setPatientReference] = useState("");
   const [sex, setSex] = useState("");
@@ -94,31 +108,31 @@ export function NewCaseForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
       <Card className="flex flex-col gap-4">
-        <SectionTitle>Patient</SectionTitle>
-        <Field label="Patient reference" htmlFor="ref" hint="Optional. Stored only as a one way hash.">
+        <SectionTitle>{t.secPatient}</SectionTitle>
+        <Field label={t.patientReference} htmlFor="ref" hint={t.patientRefHint}>
           <Input id="ref" value={patientReference} onChange={(e) => setPatientReference(e.target.value)} />
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Sex" htmlFor="sex">
+          <Field label={t.sex} htmlFor="sex">
             <Select id="sex" value={sex} onChange={(e) => setSex(e.target.value)} required>
-              <option value="" disabled>Select</option>
-              <option value="female">Female</option>
-              <option value="male">Male</option>
-              <option value="unspecified">Unspecified</option>
+              <option value="" disabled>{t.sex}</option>
+              <option value="female">{t.sexFemale}</option>
+              <option value="male">{t.sexMale}</option>
+              <option value="unspecified">{t.sexUnspecified}</option>
             </Select>
           </Field>
-          <Field label="Age in years" htmlFor="age">
+          <Field label={t.ageYears} htmlFor="age">
             <Input id="age" type="number" min={0} max={120} value={age} onChange={(e) => setAge(e.target.value)} required />
           </Field>
         </div>
       </Card>
 
       <Card className="flex flex-col gap-4">
-        <SectionTitle>Imaging findings</SectionTitle>
+        <SectionTitle>{t.secImaging}</SectionTitle>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Disc level" htmlFor="level">
+          <Field label={t.discLevel} htmlFor="level">
             <Select id="level" value={level} onChange={(e) => setLevel(e.target.value)} required>
-              <option value="" disabled>Select</option>
+              <option value="" disabled>{t.discLevel}</option>
               <option value="L1/L2">L1/L2</option>
               <option value="L2/L3">L2/L3</option>
               <option value="L3/L4">L3/L4</option>
@@ -126,66 +140,66 @@ export function NewCaseForm() {
               <option value="L5/S1">L5/S1</option>
             </Select>
           </Field>
-          <Field label="Herniation type" htmlFor="htype">
+          <Field label={t.herniationType} htmlFor="htype">
             <Select id="htype" value={herniationType} onChange={(e) => setHerniationType(e.target.value)}>
-              <option value="protrusion">Protrusion</option>
-              <option value="extrusion">Extrusion</option>
-              <option value="sequestration">Sequestration</option>
-              <option value="unknown">Unknown</option>
+              <option value="protrusion">{t.typeProtrusion}</option>
+              <option value="extrusion">{t.typeExtrusion}</option>
+              <option value="sequestration">{t.typeSequestration}</option>
+              <option value="unknown">{t.unknownWord}</option>
             </Select>
           </Field>
-          <Field label="Herniation size" htmlFor="hsize">
+          <Field label={t.herniationSize} htmlFor="hsize">
             <Select id="hsize" value={herniationSize} onChange={(e) => setHerniationSize(e.target.value)}>
-              <option value="small">Small</option>
-              <option value="moderate">Moderate</option>
-              <option value="large">Large</option>
-              <option value="unknown">Unknown</option>
+              <option value="small">{t.sizeSmall}</option>
+              <option value="moderate">{t.sizeModerate}</option>
+              <option value="large">{t.sizeLarge}</option>
+              <option value="unknown">{t.unknownWord}</option>
             </Select>
           </Field>
-          <Field label="Rim enhancement" htmlFor="rim">
+          <Field label={t.rimEnhancement} htmlFor="rim">
             <Select id="rim" value={rimEnhancement} onChange={(e) => setRimEnhancement(e.target.value)}>
-              <option value="present">Present</option>
-              <option value="absent">Absent</option>
-              <option value="not_assessed">Not assessed</option>
+              <option value="present">{t.present}</option>
+              <option value="absent">{t.absent}</option>
+              <option value="not_assessed">{t.notAssessed}</option>
             </Select>
           </Field>
-          <Field label="Posterior longitudinal ligament" htmlFor="pll">
+          <Field label={t.pll} htmlFor="pll">
             <Select id="pll" value={pllStatus} onChange={(e) => setPllStatus(e.target.value)}>
-              <option value="intact">Intact</option>
-              <option value="penetrated">Penetrated</option>
-              <option value="unknown">Unknown</option>
+              <option value="intact">{t.intact}</option>
+              <option value="penetrated">{t.penetrated}</option>
+              <option value="unknown">{t.unknownWord}</option>
             </Select>
           </Field>
-          <Field label="Modic changes" htmlFor="modic">
+          <Field label={t.modic} htmlFor="modic">
             <Select id="modic" value={modicChanges} onChange={(e) => setModicChanges(e.target.value)}>
-              <option value="none">None</option>
-              <option value="present">Present</option>
-              <option value="unknown">Unknown</option>
+              <option value="none">{t.noneWord}</option>
+              <option value="present">{t.present}</option>
+              <option value="unknown">{t.unknownWord}</option>
             </Select>
           </Field>
         </div>
       </Card>
 
       <Card className="flex flex-col gap-4">
-        <SectionTitle>Symptoms</SectionTitle>
+        <SectionTitle>{t.secSymptoms}</SectionTitle>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Symptom duration in weeks" htmlFor="dur">
+          <Field label={t.symptomDuration} htmlFor="dur">
             <Input id="dur" type="number" min={0} value={symptom} onChange={(e) => setSymptom(e.target.value)} />
           </Field>
-          <Field label="Body mass index" htmlFor="bmi" hint="Optional">
+          <Field label={t.bmi} htmlFor="bmi" hint={t.optional}>
             <Input id="bmi" type="number" min={0} step="0.1" value={bmi} onChange={(e) => setBmi(e.target.value)} />
           </Field>
         </div>
       </Card>
 
       <Card className="flex flex-col gap-4">
-        <SectionTitle>Red flag screen</SectionTitle>
-        <p className="text-sm text-muted">Check any that are present. These drive the safety triage.</p>
+        <SectionTitle>{t.secRedFlags}</SectionTitle>
+        <p className="text-sm text-muted">{t.redFlagsHint}</p>
         <div className="grid gap-3 sm:grid-cols-2">
           {RED_FLAG_ITEMS.map((item) => (
             <Checkbox
               key={item.key}
-              label={item.label}
+              label={rfLabel[item.key] ?? item.label}
               checked={redFlags[item.key]}
               onChange={(v) => setFlag(item.key, v)}
             />
@@ -194,8 +208,8 @@ export function NewCaseForm() {
       </Card>
 
       <Card className="flex flex-col gap-4">
-        <SectionTitle>MRI upload</SectionTitle>
-        <p className="text-sm text-muted">Optional. You can attach the lumbar MRI files for this case.</p>
+        <SectionTitle>{t.secUpload}</SectionTitle>
+        <p className="text-sm text-muted">{t.uploadHint}</p>
         <input
           type="file"
           multiple
@@ -209,7 +223,7 @@ export function NewCaseForm() {
 
       <div>
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving case" : "Create case"}
+          {pending ? t.savingCase : t.createCase}
         </Button>
       </div>
     </form>

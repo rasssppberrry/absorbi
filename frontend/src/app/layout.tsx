@@ -22,7 +22,8 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const store = await cookies();
-  const lang: Lang = store.get("lang")?.value === "kk" ? "kk" : "ru";
+  const value = store.get("lang")?.value;
+  const lang: Lang = value === "kk" || value === "en" ? value : "ru";
 
   return (
     <html lang={lang} className={manrope.variable}>
