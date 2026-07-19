@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Eye, EyeOff } from "lucide-react";
 import { supabasePublic } from "@/lib/supabase/public";
 import { registerDoctor } from "@/lib/auth/actions";
 import { useLanguage } from "@/lib/i18n/provider";
@@ -13,7 +14,7 @@ import { Card } from "@/components/ui/card";
 import { Container } from "@/components/ui/container";
 
 type City = { id: string; name: string };
-type Hospital = { id: string; name: string; city_id: string };
+type Hospital = { id: string; name: string; city_id: string; access_code: string | null };
 
 export default function RegisterPage() {
   const { t } = useLanguage();
@@ -23,6 +24,7 @@ export default function RegisterPage() {
   const [cityId, setCityId] = useState("");
   const [hospitalId, setHospitalId] = useState("");
   const [code, setCode] = useState("");
+  const [showCode, setShowCode] = useState(false);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,7 +35,7 @@ export default function RegisterPage() {
     async function load() {
       const [{ data: cityData }, { data: hospitalData }] = await Promise.all([
         supabasePublic.from("cities").select("id, name").order("name"),
-        supabasePublic.from("hospitals").select("id, name, city_id").order("name"),
+        supabasePublic.from("hospitals").select("id, name, city_id, access_code").order("name"),
       ]);
       setCities(cityData ?? []);
       setHospitals(hospitalData ?? []);
@@ -111,7 +113,12 @@ export default function RegisterPage() {
                 <Select
                   id="hospital"
                   value={hospitalId}
-                  onChange={(e) => setHospitalId(e.target.value)}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setHospitalId(id);
+                    const chosen = hospitals.find((h) => h.id === id);
+                    setCode(chosen?.access_code ?? "");
+                  }}
                   required
                   disabled={!cityId}
                 >
@@ -126,7 +133,24 @@ export default function RegisterPage() {
                 </Select>
               </Field>
               <Field label={t.accessCode} htmlFor="code" error={error}>
-                <Input id="code" value={code} onChange={(e) => setCode(e.target.value)} required />
+                <div className="relative">
+                  <Input
+                    id="code"
+                    type={showCode ? "text" : "password"}
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    required
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCode((s) => !s)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted transition-colors hover:text-foreground"
+                    aria-label="Show or hide the code"
+                  >
+                    {showCode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </Field>
               <Button type="submit" disabled={pending || !hospitalId}>
                 {pending ? t.checking : t.continueButton}
