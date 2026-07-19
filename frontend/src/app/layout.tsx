@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import { Manrope } from "next/font/google";
+import { cookies } from "next/headers";
 import "./globals.css";
+import { LanguageProvider } from "@/lib/i18n/provider";
+import type { Lang } from "@/lib/i18n/dictionaries";
 
 const manrope = Manrope({
-  subsets: ["latin"],
+  subsets: ["latin", "cyrillic", "cyrillic-ext"],
   variable: "--font-manrope",
   display: "swap",
 });
@@ -13,14 +16,19 @@ export const metadata: Metadata = {
   description: "Clinical decision support for lumbar disc herniation.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const store = await cookies();
+  const lang: Lang = store.get("lang")?.value === "kk" ? "kk" : "ru";
+
   return (
-    <html lang="en" className={manrope.variable}>
-      <body>{children}</body>
+    <html lang={lang} className={manrope.variable}>
+      <body>
+        <LanguageProvider lang={lang}>{children}</LanguageProvider>
+      </body>
     </html>
   );
 }
