@@ -4,6 +4,8 @@ import { Container } from "@/components/ui/container";
 import { NewCaseForm } from "@/components/app/new-case-form";
 import { getDict } from "@/lib/i18n/server";
 
+export const dynamic = "force-dynamic";
+
 export default async function NewCasePage() {
   const t = await getDict();
   return (

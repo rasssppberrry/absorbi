@@ -20,7 +20,7 @@ export function LanguageProvider({
 }) {
   function setLang(next: Lang) {
     document.cookie = `lang=${next}; path=/; max-age=31536000`;
-    window.location.reload();
+    window.location.href = window.location.href;
   }
 
   return (

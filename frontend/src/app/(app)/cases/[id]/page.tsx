@@ -16,6 +16,8 @@ import { RED_FLAG_ITEMS, type ClinicalForm } from "@/lib/cases/types";
 import { getDict, getLang } from "@/lib/i18n/server";
 import { tr } from "@/lib/i18n/dictionaries";
 
+export const dynamic = "force-dynamic";
+
 const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "webp", "gif", "bmp"];
 
 function isImageName(name: string) {
