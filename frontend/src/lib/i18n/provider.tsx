@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import { useRouter } from "next/navigation";
 import { dictionaries, type Dict, type Lang } from "./dictionaries";
 
 type LanguageContextValue = {
@@ -19,11 +18,9 @@ export function LanguageProvider({
   lang: Lang;
   children: React.ReactNode;
 }) {
-  const router = useRouter();
-
   function setLang(next: Lang) {
     document.cookie = `lang=${next}; path=/; max-age=31536000`;
-    router.refresh();
+    window.location.reload();
   }
 
   return (
