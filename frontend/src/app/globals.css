@@ -19,3 +19,19 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
+
+@keyframes absorbiPulse {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.25); }
+}
+@keyframes absorbiReveal {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-pulse-glow { animation: absorbiPulse 3s ease-in-out infinite; }
+.reveal { opacity: 0; }
+.reveal.is-visible { animation: absorbiReveal 0.8s ease-out forwards; }
+
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-stopped { overflow: hidden; }
